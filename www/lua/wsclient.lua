@@ -99,9 +99,24 @@ function onSendNameClick()
     webSocket:send(out)
 end
 
+function onSendConnectMeToClick() 
+    if (webSocket.readyState ~= WebSocket.OPEN) then
+		console.error("webSocket is not open: " + webSocket.readyState)
+	return
+    end
+    
+    local author = document:getElementById("author").value
+    local recipient = document:getElementById("recipient").value
+    local out = '{"cmd":"connect_me_to", "recipient":"'..recipient..'"}"'
+    webSocket:send(out)
+end
+
 local btnConnect = document:getElementById('btnConnect')
    btnConnect.onclick=onConnectClick
 local btnSend = document:getElementById('btnSend')
 	btnSend.onclick=onSendClick
 local btnSendName = document:getElementById('btnSendName')
 	btnSendName.onclick=onSendNameClick
+
+local btnSendName = document:getElementById('btnSendConnectMeTo')
+	btnSendName.onclick=onSendConnectMeToClick

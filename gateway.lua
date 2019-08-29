@@ -252,7 +252,13 @@ end
 
 local function websocket_reply(t, msg)
 --~ //Parse out the return socket name
-print(msg)
+
+if t.peer then 
+	--~ There should probably be an escape sequence to send server commands
+	Sessions[t.peer].websocket:send(dkjson.encode(msg))
+	return true
+end
+
 	if not msg.cmd then 
 		t.websocket:send("Need a command: {cmd:'?'}")
 		return
@@ -275,23 +281,18 @@ print(msg)
 				end
 			end
 		end
+	elseif cmd == 'CONNECT_ME_TO' then
+		if msg.recipient then
+			for i,v in pairs(Sessions) do
+				
+				if v.name and v.name == msg.recipient then 
+					t.peer=i
+					Sessions[i].peer = t.session_id
+					t.websocket:send("Okay, done.")
+				end
+			end
+		end
 	end
-	--~ if msg.cmd then
-		--~ local cmd = msg.cmd:upper()
-
-		--~ if cmd == "STATUS" then
-
-			--~ --Log status for each client
-		--~ elseif cmd == "AUTH" then
-
-		--~ elseif cmd == "HELP" then
-			--~ write_to_process(msg.cmd..'\n')
-		--~ elseif cmd == "UNIT-RESPONSE" then
-		--~ else
-			--~ logger:info("Type=" .. msg.cmd)
-			--~ write_to_process(msg.cmd..'\n')
-		--~ end
-	--~ end
 end
 
 
@@ -327,10 +328,10 @@ else create new: timestamp of first contact, address, set auth to no.
 	
 		local t = {}
 		t.session_id = id
-		--~ t.peer = stream:peername()
-		local num, ip, port = stream:peername()		
+		local num, ip, port = stream:peername()	
+		t.address = ip..":"..port	
 		t.session_start = os.date()
-		Sessions[ip..":"..port] = t
+		Sessions[t.session_id] = t
 		t.new_connection = true
 		t.websocket = ws
 		assert(ws:accept())
