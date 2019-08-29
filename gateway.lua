@@ -327,9 +327,10 @@ else create new: timestamp of first contact, address, set auth to no.
 	
 		local t = {}
 		t.session_id = id
-		t.peer = stream:peername()
+		--~ t.peer = stream:peername()
+		local num, ip, port = stream:peername()		
 		t.session_start = os.date()
-		Sessions[stream:peername()] = t
+		Sessions[ip..":"..port] = t
 		t.new_connection = true
 		t.websocket = ws
 		assert(ws:accept())
