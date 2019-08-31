@@ -250,75 +250,81 @@ local function static_reply(myserver, stream, req_headers) -- luacheck: ignore 2
 end
 
 local function validate_set_session(session, msg)
+	local Clients = {["Tel-Array"]=true,["Canary"]=true}
+	local Models = {["A-1001"]=true}
 	local result = false
-	local msgfmt = "Session: %s, field: %s, failure: %s, value: %s"
-	if msg.client and type(client) == 'string' then
+	print("msg")
+	print(serpent.block(msg), type(msg))
+	local msgfmt = "Session: %s, field: %s, failure: %s, value: %s, type: %s"
+	if msg.client and type(msg.client) == 'string' then
 		if Clients[msg.client] then
 			session.client = msg.client
 			result = true
 		else
 		--client not found
-			logger:info(msgfmt, session, "client", "client not found", msg.client)			
+			logger:info(msgfmt, session, "client", "client not found", msg.client, type(msg.client))			
 			result = false
 		end
 	else
 		--log and disconnect
-		logger:info(msgfmt, session, "client", "bad format", msg.client)
+		logger:info(msgfmt, session, "client", "bad format", msg.client, type(msg.client))
 		result = false
 	end
 
-	if msg.model and type(model) == 'string' then
+	if msg.model and type(msg.model) == 'string' then
 		if Models[msg.model] then
 			session.model = msg.model
 			result = true
 		else
-			logger:info(msgfmt, session, "model", "model not found", msg.model)
+			logger:info(msgfmt, session, "model", "model not found", msg.model, type(msg.model))
 			--model not found
 			result = false
 		end
 	else
 		--model not specified
-		logger:info(msgfmt, session, "model", "bad format", msg.model)
+		logger:info(msgfmt, session, "model", "bad format", msg.model, type(msg.model))
 		result = false
 	end
 	
-	if msg.serial_number and type(serial_number) == 'string' then
+	if msg.serial_number and type(msg.serial_number) == 'string' then
 		session.serial_number = msg.serial_number
 		result = true
 	else
 		---serial number not specified
-		logger:info(msgfmt, session, "serial", "no serial or bad format", msg.serial)
+		logger:info(msgfmt, session, "serial", "no serial or bad format", msg.serial, type(msg.serial_number))
 		result = false
 	end
 	
 	if msg.mode and type(msg.mode) == 'string' then
 		if msg.mode == 'pair' or msg.mode == 'wait' then
+			session.mode = msg.mode
 			result = true
 		else
-			logger:info(msgfmt, session, "mode", "bad mode value", msg.mode)
+			logger:info(msgfmt, session, "mode", "bad mode value", msg.mode, type(msg.mode))
 			result = false
 		end
 	else
-		logger:info(msgfmt, session, "mode", "bad format", msg.mode)
+		logger:info(msgfmt, session, "mode", "bad format", msg.mode, type(msg.mode))
 		result = false
 	end
 	if msg.pairing_key and msg.connection_id then 
 		--bad message
-		logger:info(msgfmt, session, "key", "too many keys")
+		logger:info(msgfmt, session, "key", "too many keys", "na", "na")
 		result = false
 	end
-	if msg.pairing_key and msg.pairing_key < 100000 then
+	if msg.pairing_key then --and type(msg.pairing_key) == 'number' and msg.pairing_key < 100000 then
 		session.pairing_key = msg.pairing_key
 		result = true
 	elseif msg.connection_id and type(msg.connection_id) =='string' then		
+		session.connection_id = msg.connection_id
 		result = true
 	else
 	--not a valid connection id
 		result = false
 		logger:info(msgfmt, session, "connection_id or pairing_key", 
-			"bad format", msg.connection_id or msg.pairing_key)		
+			"bad format", msg.connection_id or msg.pairing_key, "na")		
 	end
-				
+		
 	return result
 end
 
@@ -331,12 +337,15 @@ local function websocket_reply(t, msg)
 	end
 	local cmd = string.upper(msg.cmd)
 	if cmd == 'CONNECT' then
-		if not validate_set_session(t, cmd) then			
+		if not validate_set_session(t, msg) then			
 			return nil, "Failed Validation", -2
 		end
-		
+		logger:info("Passed Validation")
+		print(t.mode)
 		if t.mode == "wait" then
 			--SET A TIMER
+			logger:info("waiting")
+			t.websocket:send("okay, waiting")
 			return true
 		elseif t.mode == "pair" then
 			for i,v in pairs(Sessions) do
@@ -349,7 +358,7 @@ local function websocket_reply(t, msg)
 						return true
 					end
 				elseif t.pairing_key then
-					if t.pairing_key == v.pairing_key then
+					if t.pairing_key == v.pairing_key and t.session_id ~= v.session_id then
 						--MATCH
 						t.peer = i
 						Sessions[i].peer = t.session_id
@@ -366,6 +375,7 @@ local function websocket_reply(t, msg)
 			end			
 		end
 	else
+		logger:error("Not a valid command")
 		return nil, "Not a vaild command.", -3
 	end
 end
@@ -419,7 +429,12 @@ else create new: timestamp of first contact, address, set auth to no.
 			if data then			
 				if t.peer then
 					--SEND TO PEER
-					Sessions[t.peer].websocket:send(data)
+					if Sessions[t.peer] and Sessions[t.peer].websocket then
+						Sessions[t.peer].websocket:send(data)
+					else
+						logger:error("No Peer, attempted to send")
+						data = nil
+					end
 				else
 					local msg, pos, err = dkjson.decode(data, 1, nil)
 										

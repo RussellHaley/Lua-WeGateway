@@ -85,25 +85,26 @@ end
 function onSendCmdClick() 
 	print('click, click click. damn, no bullets')
     if (webSocket.readyState ~= WebSocket.OPEN) then
-		console.error("webSocket is not open: " + webSocket.readyState)
+		console.error("webSocket is not open: " .. webSocket.readyState)
 	return
     end
     
-    local out = {}
-    out.client = document:getElementById("client").value
-    out.model = document:getElementById("model").value
-    out.serial = document:getElementById("serial").value
+    local jout = js.new(js.global.Object)
+    jout.cmd = "connect"
+    jout.client = document:getElementById("client").value
+    jout.model = document:getElementById("model").value
+    jout.serial_number = document:getElementById("serial").value
+    jout.mode = document:getElementById("mode").value
     if document:getElementById("pairing_key") then
-		out.pairing_key = document:getElementById("pairing_key").value
+		jout.pairing_key = document:getElementById("pairing_key").value
     elseif document:getElementById("connection_id") then
-		out.connection_id = document:getElementById("connection_id").value
+		jout.connection_id = document:getElementById("connection_id").value
     end
-    --HOW TO CONVERT OUT TO JSON?
+    
     --~ local jout = JSON:MagicLuaConverter(out)
-    webSocket:send(JSON:stringify(jout))
-    local jout = '{"cmd":"connect","client":"Sf","model":"mk1","serial":"9999","pairing_key":12345}'
-    print(jout)
-    webSocket:send(jout)
+    local str = JSON:stringify(jout)
+    webSocket:send(str)    
+    print(str)    
 end
 
 local btnConnect = document:getElementById('btnConnect')
