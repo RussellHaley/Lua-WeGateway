@@ -13,7 +13,9 @@
 	print("hello world!")
 	</script>
 
+<!--
 	<script src="lua/my-script.lua" type="application/lua" async></script>
+-->
 	<script src="lua/wsclient.lua" type="application/lua" async></script>
 
 
@@ -50,11 +52,27 @@
 		<td><input type="text" id="port" value="8099"/></td>
 	    </tr>
 	    <tr>
-		<td>My Name Is:</td>
-		<td><input type="text" id="author"/></td> 
-		<td>Your Name Is:</td>
-		<td><input type="text" id="recipient"/></td>
+		<td>Client Name:</td>
+		<td><input type="text" id="client"/></td> 
+		</tr>
+		<tr>
+		<td>Model:</td>
+		<td><input type="text" id="model"/></td>
+		<td>Serial:</td>
+		<td><input type="text" id="serial"/></td>
 	    </tr>
+	    <tr>
+		<td>Mode:</td>
+		<td><input type="text" id="mode"/></td> 
+		</tr>
+		<tr>
+		<td>pairing_key:</td>
+		<td><input type="text" id="pairing_key"/></td> 
+		</tr>
+		<tr>
+		<td>connection_id:</td>
+		<td><input type="text" id="connection_id"/></td> 
+		</tr>
 	    <tr>
 		<td></td>
 		<td>
@@ -62,8 +80,7 @@
 		    <input id="btnConnect"    type="button" value="Connect"    onclick="onConnectClick()">&nbsp;&nbsp;
 -->
 		    <input id="btnConnect"    type="button" value="Connect" >&nbsp;&nbsp;
-		    <input id="btnSendName"    type="button" value="Send Name" >&nbsp;&nbsp;
-		    <input id="btnSendConnectMeTo"    type="button" value="Connect Me To" >&nbsp;&nbsp;
+		    <input id="btnSendCmd"    type="button" value="Send Cmd" >&nbsp;&nbsp;		    
 		    <input id="btnDisconnect" type="button" value="Disconnect" onclick="onDisconnectClick()" disabled="disabled">
 		</td>
 	    </tr>

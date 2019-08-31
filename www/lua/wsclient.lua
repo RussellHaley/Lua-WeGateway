@@ -43,7 +43,7 @@ function openWSConnection(protocol, hostname, port)
 	    document:getElementById("btnDisconnect").disabled = false
 	end
 	webSocket.onclose = function (closeEvent) 
-	    console:log("WebSocket CLOSE: " + JSON:stringify(closeEvent, null, 4))
+	    --~ console:log("WebSocket CLOSE: " + JSON:stringify(closeEvent, null, 4))
 	    document:getElementById("btnSend").disabled       = true
 	    document:getElementById("btnConnect").disabled    = false
 	    document:getElementById("btnDisconnect").disabled = true
@@ -56,7 +56,7 @@ function openWSConnection(protocol, hostname, port)
 		if messageEvent then
 			console:log(messageEvent)
 			local wsMsg = messageEvent.data
-			console:log("WebSocket MESSAGE: " .. wsMsg)
+			--~ console:log("WebSocket MESSAGE: " .. wsMsg)
 			local output = document:getElementById("incomingMsgOutput")
 			if (wsMsg.error) then			
 				output.value = output.value .. "error: " .. wsMsg.error .. "\r\n"
@@ -77,46 +77,38 @@ function onSendClick()
 		console.error("webSocket is not open: " + webSocket.readyState)
 	return
     end
-    
-    local author = document:getElementById("author").value
-    local recipient = document:getElementById("recipient").value
     local msg = document:getElementById("message").value
-    local out = '{ "cmd":"send", "author":"'..author.. '","recipient":"'..recipient..'","msg":"'..msg..'"}'
     --~ webSocket:send(JSON:stringify(out))
-    webSocket:send(out)
+    webSocket:send(msg)
 end
 
-function onSendNameClick() 
+function onSendCmdClick() 
+	print('click, click click. damn, no bullets')
     if (webSocket.readyState ~= WebSocket.OPEN) then
 		console.error("webSocket is not open: " + webSocket.readyState)
 	return
     end
     
-    local author = document:getElementById("author").value
-    local recipient = document:getElementById("recipient").value
-    local msg = document:getElementById("message").value
-    local out = '{"cmd":"my_name_is", "name":"'..author..'"}"'
-    webSocket:send(out)
-end
-
-function onSendConnectMeToClick() 
-    if (webSocket.readyState ~= WebSocket.OPEN) then
-		console.error("webSocket is not open: " + webSocket.readyState)
-	return
+    local out = {}
+    out.client = document:getElementById("client").value
+    out.model = document:getElementById("model").value
+    out.serial = document:getElementById("serial").value
+    if document:getElementById("pairing_key") then
+		out.pairing_key = document:getElementById("pairing_key").value
+    elseif document:getElementById("connection_id") then
+		out.connection_id = document:getElementById("connection_id").value
     end
-    
-    local author = document:getElementById("author").value
-    local recipient = document:getElementById("recipient").value
-    local out = '{"cmd":"connect_me_to", "recipient":"'..recipient..'"}"'
-    webSocket:send(out)
+    --HOW TO CONVERT OUT TO JSON?
+    --~ local jout = JSON:MagicLuaConverter(out)
+    webSocket:send(JSON:stringify(jout))
+    local jout = '{"cmd":"connect","client":"Sf","model":"mk1","serial":"9999","pairing_key":12345}'
+    print(jout)
+    webSocket:send(jout)
 end
 
 local btnConnect = document:getElementById('btnConnect')
    btnConnect.onclick=onConnectClick
 local btnSend = document:getElementById('btnSend')
 	btnSend.onclick=onSendClick
-local btnSendName = document:getElementById('btnSendName')
-	btnSendName.onclick=onSendNameClick
-
-local btnSendName = document:getElementById('btnSendConnectMeTo')
-	btnSendName.onclick=onSendConnectMeToClick
+local btnSendCmd = document:getElementById('btnSendCmd')
+	btnSendCmd.onclick=onSendCmdClick

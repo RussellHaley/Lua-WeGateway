@@ -249,52 +249,126 @@ local function static_reply(myserver, stream, req_headers) -- luacheck: ignore 2
 	end
 end
 
+local function validate_set_session(session, msg)
+	local result = false
+	local msgfmt = "Session: %s, field: %s, failure: %s, value: %s"
+	if msg.client and type(client) == 'string' then
+		if Clients[msg.client] then
+			session.client = msg.client
+			result = true
+		else
+		--client not found
+			logger:info(msgfmt, session, "client", "client not found", msg.client)			
+			result = false
+		end
+	else
+		--log and disconnect
+		logger:info(msgfmt, session, "client", "bad format", msg.client)
+		result = false
+	end
+
+	if msg.model and type(model) == 'string' then
+		if Models[msg.model] then
+			session.model = msg.model
+			result = true
+		else
+			logger:info(msgfmt, session, "model", "model not found", msg.model)
+			--model not found
+			result = false
+		end
+	else
+		--model not specified
+		logger:info(msgfmt, session, "model", "bad format", msg.model)
+		result = false
+	end
+	
+	if msg.serial_number and type(serial_number) == 'string' then
+		session.serial_number = msg.serial_number
+		result = true
+	else
+		---serial number not specified
+		logger:info(msgfmt, session, "serial", "no serial or bad format", msg.serial)
+		result = false
+	end
+	
+	if msg.mode and type(msg.mode) == 'string' then
+		if msg.mode == 'pair' or msg.mode == 'wait' then
+			result = true
+		else
+			logger:info(msgfmt, session, "mode", "bad mode value", msg.mode)
+			result = false
+		end
+	else
+		logger:info(msgfmt, session, "mode", "bad format", msg.mode)
+		result = false
+	end
+	if msg.pairing_key and msg.connection_id then 
+		--bad message
+		logger:info(msgfmt, session, "key", "too many keys")
+		result = false
+	end
+	if msg.pairing_key and msg.pairing_key < 100000 then
+		session.pairing_key = msg.pairing_key
+		result = true
+	elseif msg.connection_id and type(msg.connection_id) =='string' then		
+		result = true
+	else
+	--not a valid connection id
+		result = false
+		logger:info(msgfmt, session, "connection_id or pairing_key", 
+			"bad format", msg.connection_id or msg.pairing_key)		
+	end
+				
+	return result
+end
+
 
 local function websocket_reply(t, msg)
---~ //Parse out the return socket name
-
-if t.peer then 
-	--~ There should probably be an escape sequence to send server commands
-	Sessions[t.peer].websocket:send(dkjson.encode(msg))
-	return true
-end
 
 	if not msg.cmd then 
-		t.websocket:send("Need a command: {cmd:'?'}")
-		return
+		t.websocket:send("Not Valid")
+		return nil, "Not Valid", -1
 	end
 	local cmd = string.upper(msg.cmd)
-	if cmd == 'MY_NAME_IS' then
-		if not msg.name then  
-			t.websocket:send("Need a name for the name commsnd: {cmd:'my_name_is', name:'?'}")
-		else
-			t.name = msg.name
-			t.websocket:send("okay, I'll call you"..t.name)
+	if cmd == 'CONNECT' then
+		if not validate_set_session(t, cmd) then			
+			return nil, "Failed Validation", -2
 		end
-	elseif cmd == 'AUTHENTICATE' then 
-		t.websocket:send("We're not there yet")
-	elseif cmd == 'SEND' then
-		if msg.recipient then
+		
+		if t.mode == "wait" then
+			--SET A TIMER
+			return true
+		elseif t.mode == "pair" then
 			for i,v in pairs(Sessions) do
-				if v.name and v.name == msg.recipient then 
-					Sessions[i].websocket:send(dkjson.encode(msg))
+				if t.connection_id  then
+					if t.connection_id == v.connection_id then
+						--MATCH
+						t.peer = i
+						Sessions[i].peer = t.session_id
+						logger:info("wait peer: %s, pair peer: %s", Sessions[i].session_id, t.session_id)
+						return true
+					end
+				elseif t.pairing_key then
+					if t.pairing_key == v.pairing_key then
+						--MATCH
+						t.peer = i
+						Sessions[i].peer = t.session_id
+						--TURN TIMER OFF
+						--GENERATE UUID
+						local conn_id = get_uuid()
+						--TURN THIS INTO REUTRNMESS
+						t.websocket:send(conn_id)
+						Sessions[i].websocket:send(conn_id)
+						logger:info("wait peer: %s, pair peer: %s", Sessions[i].session_id, t.session_id)
+						return true
+					end
 				end
-			end
+			end			
 		end
-	elseif cmd == 'CONNECT_ME_TO' then
-		if msg.recipient then
-			for i,v in pairs(Sessions) do
-				
-				if v.name and v.name == msg.recipient then 
-					t.peer=i
-					Sessions[i].peer = t.session_id
-					t.websocket:send("Okay, done.")
-				end
-			end
-		end
+	else
+		return nil, "Not a vaild command.", -3
 	end
 end
-
 
 --- process_request is where we process the request from the client.
 -- The system upgrades to a websocket if the ws or wss protocols are used.
@@ -334,30 +408,40 @@ else create new: timestamp of first contact, address, set auth to no.
 		Sessions[t.session_id] = t
 		t.new_connection = true
 		t.websocket = ws
-		assert(ws:accept())
-		assert(ws:send("Welcome To exb Server"))
-		assert(ws:send("Your client id is " .. t.session_id))
-		ws:send("{authenticated:false}")
+		assert(t.websocket:accept())
+		assert(t.websocket:send("WebEnabled - 0.1.0"))
+		t.websocket:send("{authenticated:false}")
 		--Get my name first
 		--Send an Authenticate required message
 		repeat
-			local data, err, errno = ws:receive()
-			if data then
-				local msg, pos, err = dkjson.decode(data, 1, nil)
-									
-				if msg and type(msg) == 'table' then
-					
-					if DEBUG then
-						logger:info(serpent.block(msg))
-					end
-					websocket_reply(t, msg)
+			local data, err, errno = t.websocket:receive()
+			
+			if data then			
+				if t.peer then
+					--SEND TO PEER
+					Sessions[t.peer].websocket:send(data)
 				else
-					print(type(data))
-					print(type(msg))
-					print(msg)
-					logger:info("message could not be parsed")
-					logger:info(pos, err)
-					ws:send(string.format("I only speak json, sorry. %s - %s", data, t.session_id))
+					local msg, pos, err = dkjson.decode(data, 1, nil)
+										
+					if msg and type(msg) == 'table' then
+						
+						if DEBUG then
+							logger:info(serpent.block(msg))
+						end
+						local ok, err, errno = websocket_reply(t, msg)
+						if not ok then
+							logger:info(err, errno)
+							t.websocket:close(1000, err or "Failed")
+							data = nil
+						end
+					else
+						print(type(data))
+						print(type(msg))
+						print(msg)
+						logger:info("message could not be parsed")
+						logger:info(pos, err)
+						ws:send(string.format("I only speak json, sorry. %s - %s", data, t.session_id))
+					end
 				end
 			else
 				print('doh')
@@ -382,8 +466,8 @@ local function Listen(app_server)
 	-- Manually call :listen() so that we are bound before calling :localname()
 	assert(app_server:listen())
 	do
-		
-		logger:info(string.format("Now listening on %s port %d\n", app_server:localname(), conf.port))
+		local id, ip, port = app_server:localname()
+		logger:info(string.format("Now listening on %s port %d\n", ip, port))
 	end
 	local cq_ok, err, errno = app_server:loop()
 	if not cq_ok then
@@ -399,7 +483,7 @@ local function CreateListen(debug_logger, config)
 	conf = config
 	connection_log = rolling_logger(conf.base_path .. "/" .. conf.connection_log, conf.file_roll_size or 1024*1024*10, conf.max_log_files or 31)
 
-	local jar = 'we-client'
+	local jar = 'WebEnabled'
 	logger:info(string.format('Welcome to %s', jar))
 	
 	local out = io.stderr
