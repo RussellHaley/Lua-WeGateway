@@ -45,7 +45,7 @@
 	    </tr>
 	    <tr>
 		<td>WS Hostname</td>
-		<td><input type="text" id="hostname" value="192.168.1.174"/></td>
+		<td><input type="text" id="hostname" value="192.168.1.110"/></td>
 	    </tr>
 	    <tr>
 		<td>WS Port</td>
@@ -58,6 +58,8 @@
 		<tr>
 		<td>Model:</td>
 		<td><input type="text" id="model"/></td>
+		</tr>
+	    <tr>
 		<td>Serial:</td>
 		<td><input type="text" id="serial"/></td>
 	    </tr>
@@ -76,9 +78,6 @@
 	    <tr>
 		<td></td>
 		<td>
-<!--
-		    <input id="btnConnect"    type="button" value="Connect"    onclick="onConnectClick()">&nbsp;&nbsp;
--->
 		    <input id="btnConnect"    type="button" value="Connect" >&nbsp;&nbsp;
 		    <input id="btnSendCmd"    type="button" value="Send Cmd" >&nbsp;&nbsp;		    
 		    <input id="btnDisconnect" type="button" value="Disconnect" onclick="onDisconnectClick()" disabled="disabled">
@@ -95,6 +94,9 @@
 		<td></td>
 		<td>
 		    <input id="btnSend" type="button" value="Send Message" disabled="disabled">
+		</td>
+		<td>
+		    <input id="btnClear" type="button" value="Clear Messages">
 		</td>
 	    </tr>
 	</table><br/>

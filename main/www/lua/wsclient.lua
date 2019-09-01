@@ -59,9 +59,9 @@ function openWSConnection(protocol, hostname, port)
 			--~ console:log("WebSocket MESSAGE: " .. wsMsg)
 			local output = document:getElementById("incomingMsgOutput")
 			if (wsMsg.error) then			
-				output.value = output.value .. "error: " .. wsMsg.error .. "\r\n"
+				output.value = "error: " .. wsMsg.error .. "\r\n" .. output.value
 			else
-				output.value = output.value .. "message: " .. wsMsg .. "\r\n"
+				output.value = "message: " .. wsMsg .. "\r\n" .. output.value
 			end
 		else
 			console:log("messageEvent was nil")
@@ -95,9 +95,10 @@ function onSendCmdClick()
     jout.model = document:getElementById("model").value
     jout.serial_number = document:getElementById("serial").value
     jout.mode = document:getElementById("mode").value
-    if document:getElementById("pairing_key") then
+    if document:getElementById("pairing_key") and document:getElementById("pairing_key").value ~= "" then
 		jout.pairing_key = document:getElementById("pairing_key").value
-    elseif document:getElementById("connection_id") then
+    end
+    if document:getElementById("connection_id") and document:getElementById("connection_id").value ~= "" then
 		jout.connection_id = document:getElementById("connection_id").value
     end
     
@@ -107,9 +108,15 @@ function onSendCmdClick()
     print(str)    
 end
 
+local function onClearMessages()
+	document:getElementById('incomingMsgOutput').value = "";
+end
+
 local btnConnect = document:getElementById('btnConnect')
    btnConnect.onclick=onConnectClick
 local btnSend = document:getElementById('btnSend')
 	btnSend.onclick=onSendClick
 local btnSendCmd = document:getElementById('btnSendCmd')
 	btnSendCmd.onclick=onSendCmdClick
+local btnClear = document:getElementById('btnClear')
+	btnclear.onclick=onClearMessages

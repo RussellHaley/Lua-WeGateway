@@ -27,7 +27,7 @@ local req_timeout = 10
 local ShutDown = false
 local Sessions = {}
 local uri_reference = uri_patts.uri_reference * lpeg.P(-1)
-local conf
+--~ local conf
 local logger
 
 --~ Placeholder for the function that writes websocke messages to the minecraft server.
@@ -100,21 +100,17 @@ local human do -- Utility function to convert to a human readable number
 end
 
 
-local function static_reply(myserver, stream, req_headers) -- luacheck: ignore 212
+--[[
+Static Reply
+Does not recognize mime types associated with files
+Does not serve index.html if the file exists, only servers directory
+No templating
+--]]
+local function static_reply(myserver, stream, req_headers, static_dir, default_document) -- luacheck: ignore 212
 
 	-- Read in headers
 	assert(req_headers)
 	local req_method = req_headers:get ":method"
-
-	-- Log request to stdout
-	--[[assert(io.stdout:write(string.format('[%s] "%s %s HTTP/%g"  "%s" "%s"\n',
-		os.date("%d/%b/%Y:%H:%M:%S %z"),
-		req_method or "",
-		req_headers:get(":path") or "",
-		stream.connection.version,
-		req_headers:get("referer") or "-",
-		req_headers:get("user-agent") or "-"
-	)))--]]
 
 	-- Build response headers
 	local res_headers = new_headers()
@@ -131,7 +127,10 @@ local function static_reply(myserver, stream, req_headers) -- luacheck: ignore 2
 	local path = req_headers:get(":path")
 	local uri_t = assert(uri_reference:match(path), "invalid path")
 	path = http_util.resolve_relative_path("/", uri_t.path)
-	local real_path = conf.static_dir .. path
+	if path == "/" and default_document then 
+		path = path .. default_document 
+	end
+	local real_path = static_dir .. path
 	print(path, real_path)
 	local file_type = lfs.attributes(real_path, "mode")
 	print(string.format("file type: %s", file_type)) 
@@ -312,7 +311,8 @@ local function validate_set_session(session, msg)
 		logger:info(msgfmt, session, "key", "too many keys", "na", "na")
 		result = false
 	end
-	if msg.pairing_key then --and type(msg.pairing_key) == 'number' and msg.pairing_key < 100000 then
+	local pairing_key = tonumber(msg.pairing_key)
+	if pairing_key and pairing_key < 100000 then
 		session.pairing_key = msg.pairing_key
 		result = true
 	elseif msg.connection_id and type(msg.connection_id) =='string' then		
@@ -350,15 +350,18 @@ local function websocket_reply(t, msg)
 		elseif t.mode == "pair" then
 			for i,v in pairs(Sessions) do
 				if t.connection_id  then
-					if t.connection_id == v.connection_id then
+					if t.connection_id == v.connection_id and t.session_id ~= v.session_id and v.mode == "wait" then
 						--MATCH
 						t.peer = i
 						Sessions[i].peer = t.session_id
+						local msg = "Thank you for choosing bell."
+						t.websocket:send(msg)
+						Sessions[i].websocket:send(msg)
 						logger:info("wait peer: %s, pair peer: %s", Sessions[i].session_id, t.session_id)
 						return true
 					end
 				elseif t.pairing_key then
-					if t.pairing_key == v.pairing_key and t.session_id ~= v.session_id then
+					if t.pairing_key == v.pairing_key and t.session_id ~= v.session_id and v.mode == "wait" then
 						--MATCH
 						t.peer = i
 						Sessions[i].peer = t.session_id
@@ -384,7 +387,7 @@ end
 -- The system upgrades to a websocket if the ws or wss protocols are used.
 -- @param server ?
 -- @param An open stream to the client. Raw socket abstraction?
-local function process_request(server, stream)
+local function process_request(server, stream, static_dir, default_document)
 
 --[[
 get the users address and check if there is an existing session
@@ -420,7 +423,7 @@ else create new: timestamp of first contact, address, set auth to no.
 		t.websocket = ws
 		assert(t.websocket:accept())
 		assert(t.websocket:send("WebEnabled - 0.1.0"))
-		t.websocket:send("{authenticated:false}")
+		t.websocket:send('{"authenticated":false}')
 		--Get my name first
 		--Send an Authenticate required message
 		repeat
@@ -459,20 +462,24 @@ else create new: timestamp of first contact, address, set auth to no.
 					end
 				end
 			else
+				logger:error(err, errno, "Recieve Failed")
 				print('doh')
 				--Add valid reason codes for the data to be nil?
-				if errno == 1 then
-
-				else
-					logger:error(err, errno, "Recieve Failed")
-				end
 			end
 
 		until not data
 		logger:info("removed " .. id)
-		Sessions[id] = nil
+		if t.mode == "wait" then
+				--~ should provide a reason...
+				if Sessions[t.peer] and Sessions[t.peer].websocket then
+				Sessions[t.peer].websocket:close(1001,"Peer Closed")			
+				Sessions[t.peer] = nil
+				logger:info("closed peer")
+			end
+		end
+		Sessions[t.session_id] = nil
 	else
-		static_reply(server, stream, request_headers)
+		static_reply(server, stream, request_headers, static_dir, default_document)
 	end
 end
 	
@@ -493,10 +500,10 @@ local function Listen(app_server)
 
 end
 
-local function CreateListen(debug_logger, config)
+local function CreateServer(debug_logger, config)
 	logger = debug_logger
-	conf = config
-	connection_log = rolling_logger(conf.base_path .. "/" .. conf.connection_log, conf.file_roll_size or 1024*1024*10, conf.max_log_files or 31)
+
+	connection_log = rolling_logger(config.base_path .. "/" .. config.connection_log, config.file_roll_size or 1024*1024*10, config.max_log_files or 31)
 
 	local jar = 'WebEnabled'
 	logger:info(string.format('Welcome to %s', jar))
@@ -504,10 +511,18 @@ local function CreateListen(debug_logger, config)
 	local out = io.stderr
 	--~ cq = cqueues.new()
 
+	local listen_dir = string.format("%s/%s", config.base_path or ".", config.static_dir or "www")
 	local app_server = http_server.listen {
-	host = conf.host;
-	port = conf.port;
-	onstream = process_request;
+	host = config.host;
+	port = config.port;
+	onstream = function(server,stream) process_request(server,stream, listen_dir, config.default_document or "index.html") end;
+	onerror = function(myserver, context, op, err, errno) -- luacheck: ignore 212
+		local msg = op .. " on " .. tostring(context) .. " failed"
+		if err then
+			msg = msg .. ": " .. tostring(err)
+		end
+		assert(io.stderr:write(msg, "\n"))
+	end;
 	}
 	
 	return function() Listen(app_server) end
@@ -515,5 +530,5 @@ end
 
 -- call Run with pcall and if it dies, restart it. We can then add a proper handler in cqueues for signals
 
-return {new = CreateListen}
+return {new = CreateServer}
 
