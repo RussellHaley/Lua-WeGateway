@@ -1,5 +1,14 @@
 local dkjson = require "dkjson"
+local serpent = require "serpent"
 local Sessions, connection_log, logger
+
+
+local uuid = require "uuid"
+local function get_uuid()
+	local u = uuid()
+	return u
+end
+
 
 local function validate_set_session(session, msg)
 	local Clients = {["Tel-Array"]=true,["Canary"]=true}
@@ -82,7 +91,7 @@ local function validate_set_session(session, msg)
 end
 
 
-local function websocket_reply(t, msg)
+local function websocket_reply(Sessions, t, msg)
 
 	if not msg.cmd then 
 		t.websocket:send("Not Valid")
@@ -166,7 +175,7 @@ else create new: timestamp of first contact, address, set auth to no.
 			if DEBUG then
 				logger:info(serpent.block(msg))
 			end
-			local ok, err, errno = websocket_reply(session, msg)
+			local ok, err, errno = websocket_reply(Sessions, session, msg)
 			if not ok then
 				logger:info(err, errno)
 				session.websocket:close(1000, err or "Failed")

@@ -29,7 +29,7 @@ local function load_sites(cfg_dir, cq)
 				print(filename, module_name)
 				--need to strip off the extension to make this happen
 				local ws_config = require(cfg_dir.."."..module_name)
-				--~ local handler = require("main.webenabled-request-handler")
+				local handler = require("main.webenabled-request-handler")
 				local lgr = create_logger(ws_config)
 				if handler then
 					handler.new(lgr)
