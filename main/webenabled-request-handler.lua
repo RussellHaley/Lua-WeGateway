@@ -1,3 +1,5 @@
+local dkjson = require "dkjson"
+local Sessions, connection_log, logger
 
 local function validate_set_session(session, msg)
 	local Clients = {["Tel-Array"]=true,["Canary"]=true}
@@ -140,7 +142,7 @@ end
 -- The system upgrades to a websocket if the ws or wss protocols are used.
 -- @param server ?
 -- @param An open stream to the client. Raw socket abstraction?
-local function process_request(server, stream, static_dir, default_document)
+local function websocket_receive(Sessions, session, data)
 
 --[[
 get the users address and check if there is an existing session
@@ -148,95 +150,47 @@ if exists: set timestamp, check if authenticated.
 else create new: timestamp of first contact, address, set auth to no.
 --]]
 
-	
-	local request_headers = assert(stream:get_headers())
-	local request_method = request_headers:get ":method"
-
-	local id = get_uuid()
-	--how do I get the client url and mac?
-	connection_log:info(string.format('[%s] "%s %s HTTP/%g"  "%s" "%s" ',
-		id,
-		request_headers:get(":method") or "",
-		request_headers:get(":path") or "",
-		stream.connection.version,
-		request_headers:get("referer") or "-",
-		request_headers:get("user-agent") or "-"
-		));
-
-	local ws = websocket.new_from_stream(stream, request_headers)
-	if ws then
-	
-	--[[RUN CUSTOM WEBSOCKET HANDLER--]]
-	
-		local t = {}
-		t.session_id = id
-		local num, ip, port = stream:peername()	
-		t.address = ip..":"..port	
-		t.session_start = os.date()
-		Sessions[t.session_id] = t
-		t.new_connection = true
-		t.websocket = ws
-		assert(t.websocket:accept())
-		assert(t.websocket:send("WebEnabled - 0.1.0"))
-		t.websocket:send('{"authenticated":false}')
-		--Get my name first
-		--Send an Authenticate required message
-		repeat
-			local data, err, errno = t.websocket:receive()
-			
-			if data then			
-				if t.peer then
-					--SEND TO PEER
-					if Sessions[t.peer] and Sessions[t.peer].websocket then
-						Sessions[t.peer].websocket:send(data)
-					else
-						logger:error("No Peer, attempted to send")
-						data = nil
-					end
-				else
-					local msg, pos, err = dkjson.decode(data, 1, nil)
-										
-					if msg and type(msg) == 'table' then
-						
-						if DEBUG then
-							logger:info(serpent.block(msg))
-						end
-						local ok, err, errno = websocket_reply(t, msg)
-						if not ok then
-							logger:info(err, errno)
-							t.websocket:close(1000, err or "Failed")
-							data = nil
-						end
-					else
-						print(type(data))
-						print(type(msg))
-						print(msg)
-						logger:info("message could not be parsed")
-						logger:info(pos, err)
-						ws:send(string.format("I only speak json, sorry. %s - %s", data, t.session_id))
-					end
-				end
-			else
-				logger:error(err, errno, "Recieve Failed")
-				print('doh')
-				--Add valid reason codes for the data to be nil?
-			end
-
-		until not data
-		logger:info("removed " .. id)
-		if t.mode == "wait" then
-				--~ should provide a reason...
-				if Sessions[t.peer] and Sessions[t.peer].websocket then
-				Sessions[t.peer].websocket:close(1001,"Peer Closed")			
-				Sessions[t.peer] = nil
-				logger:info("closed peer")
-			end
+	if session.peer then
+		--SEND TO PEER
+		if Sessions[session.peer] and Sessions[session.peer].websocket then
+			Sessions[session.peer].websocket:send(data)
+		else
+			logger:error("No Peer, attempted to send")
+			data = nil
 		end
-		Sessions[t.session_id] = nil
 	else
-		if not config.static_reply then
-			--RUN DEFAULT HANDLER
-			static_reply(server, stream, request_headers, static_dir, default_document)
+		local msg, pos, err = dkjson.decode(data, 1, nil)
+							
+		if msg and type(msg) == 'table' then
+			
+			if DEBUG then
+				logger:info(serpent.block(msg))
+			end
+			local ok, err, errno = websocket_reply(session, msg)
+			if not ok then
+				logger:info(err, errno)
+				session.websocket:close(1000, err or "Failed")
+				data = nil
+			end
+		else
+			print(type(data))
+			print(type(msg))
+			print(msg)
+			logger:info("message could not be parsed")
+			logger:info(pos, err)
+			session.websocket:send(string.format("I only speak json, sorry. %s - %s", data, session.session_id))
 		end
 	end
 end
+
+local function new(debug_log )
+	logger = debug_log
+	
+end
+
+local request_handler = {
+new = new,
+websocket_receive = websocket_receive
+}
+
+return request_handler

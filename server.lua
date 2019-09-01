@@ -29,7 +29,13 @@ local function load_sites(cfg_dir, cq)
 				print(filename, module_name)
 				--need to strip off the extension to make this happen
 				local ws_config = require(cfg_dir.."."..module_name)
-				cq:wrap(gw.new(create_logger(ws_config), ws_config))
+				--~ local handler = require("main.webenabled-request-handler")
+				local lgr = create_logger(ws_config)
+				if handler then
+					handler.new(lgr)
+					ws_config.websocket_receive = handler.websocket_receive
+				end
+				cq:wrap(gw.new(lgr, ws_config))
 			end
 		end
 	end
