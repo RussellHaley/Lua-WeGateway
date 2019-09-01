@@ -19,7 +19,7 @@ local function get_module_name(url)
   return url:match "(.*)%..*"
 end
 
-
+-- need to load the site specific code from the configuration?
 local function load_sites(cfg_dir, cq)
 	for filename in lfs.dir(cfg_dir or "configs") do
 		if filename ~= "." or filename ~= ".." then
