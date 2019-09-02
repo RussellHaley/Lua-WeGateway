@@ -317,8 +317,8 @@ gateway.handlers =
 {
 	websocket_receive = function(self, Sessions, session, data)
 		--~ local send = session.websocket:send
-		session.websocket:send("Hello Mr. "..session.session_id)
-		session.websocket:send("Hi! Hi hi hi!")
+		session.websocket:send("Session ID: "..session.session_id)
+		session.websocket:send("This is the default gateway handler...")
 	end,
 	static_reply = static_reply
 }
@@ -341,21 +341,21 @@ local function CreateServer(config, handlers, debug_logger)
 
 	local jar = 'WebEnabled'
 	obj.debug_log:info(string.format('Welcome to %s', jar))
-	
+		
 	local out = io.stderr
 	--~ cq = cqueues.new()
 	local listen_dir = string.format("%s/%s", config.base_path or ".", config.static_dir or "www")
 	local app_server = http_server.listen {
-	host = config.host;
-	port = config.port;
-	onstream = function(server,stream) obj:process_request(server,stream, config) end;
+	host = config.host,
+	port = config.port,
+	onstream = function(server,stream) print('got here') obj:process_request(server,stream, config) end,
 	onerror = function(myserver, context, op, err, errno) -- luacheck: ignore 212
 		local msg = op .. " on " .. tostring(context) .. " failed"
 		if err then
 			msg = msg .. ": " .. tostring(err)
 		end
 		assert(io.stderr:write(msg, "\n"))
-	end;
+	end,
 	}
 	
 	obj.listen = function() obj:Listen(app_server) end

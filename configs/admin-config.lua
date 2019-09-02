@@ -5,7 +5,6 @@ local c = {
 	--~ remote_host = "localhost",
 	secure = false,
 	tree = 'root', --project,user,root
-
 	debug_file_name = 'logs/admin_debug.log',
 	connection_log = 'logs/admin_connection.log',
 	host='localhost',
@@ -17,5 +16,5 @@ local c = {
 	max_log_files=31
 }
 
-c.handler_module = "admin-routes"
+--~ c.handler_module = "admin-routes"
 return c

@@ -34,7 +34,7 @@ local function load_sites(cfg_dir, cq)
 				local h_file = nil
 				local handlers = nil
 				if ws_config.handler_module then
-				print(ws_config.base_path.."."..ws_config.handler_module)
+					print(ws_config.base_path.."."..ws_config.handler_module)
 					h_file = ws_config.base_path.."."..ws_config.handler_module
 					handlers = require(h_file).new(lgr)
 				end
