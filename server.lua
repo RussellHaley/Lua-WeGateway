@@ -1,6 +1,6 @@
 #!/usr/local/bin/lua53
 
-local gw = require('gateway')
+local gateway = require('gateway')
 local lfs = require "lfs"
 local cqueues = require('cqueues')
 
@@ -29,13 +29,20 @@ local function load_sites(cfg_dir, cq)
 				print(filename, module_name)
 				--need to strip off the extension to make this happen
 				local ws_config = require(cfg_dir.."."..module_name)
-				local handler = require("main.webenabled-request-handler")
 				local lgr = create_logger(ws_config)
-				if handler then
-					handler.new(lgr)
-					ws_config.websocket_receive = handler.websocket_receive
+				
+				local h_file = nil
+				local handlers = nil
+				if ws_config.handler_module then
+				print(ws_config.base_path.."."..ws_config.handler_module)
+					h_file = ws_config.base_path.."."..ws_config.handler_module
+					handlers = require(h_file).new(lgr)
 				end
-				cq:wrap(gw.new(lgr, ws_config))
+				--CHECK IF THE FILE EXISTS								
+				print("mk gw", handlers, ws_config.base_path)				
+				local gw = gateway.new(ws_config, handlers, lgr)
+				
+				cq:wrap(gw.listen)
 			end
 		end
 	end
@@ -49,6 +56,6 @@ load_sites(cfg_dir, cq)
 
 local cq_ok, err, errno = cq:loop()
 if not cq_ok then
-	logger:fatal("%d - %s\n%s", errno or -1, err or 'none', debug.traceback())
+	--~ logger:fatal("%d - %s\n%s", errno or -1, err or 'none', debug.traceback())
 	print(err, errno, "Jumped the loop.", debug.traceback())
 end

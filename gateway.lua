@@ -23,20 +23,19 @@ local serpent = require "serpent"
 local chronos = require 'chronos'
 
 uuid.randomseed(12365843213246849613)
-local req_timeout = 10
-local ShutDown = false
-local Sessions = {}
+
+local gateway = {}
+--~ local req_timeout = 10
+--~ local ShutDown = false
+--~ local Sessions = {}
 local uri_reference = uri_patts.uri_reference * lpeg.P(-1)
---~ local conf
-local logger
-
-
-local connection_log
+--~ local logger
+--~ local connection_log
 
 --- Get a UUID from the OS
 -- return: Returns a system generated UUID
 -- such as "4f1c1fbe-87a7-11e6-b146-0c54a518c15b"
-local function get_uuid()
+function gateway:get_uuid()
 	local u = uuid()
 	return u
 end
@@ -88,7 +87,7 @@ Does not recognize mime types associated with files
 Does not serve index.html if the file exists, only servers directory
 No templating
 --]]
-local function static_reply(myserver, stream, req_headers, static_dir, default_document) -- luacheck: ignore 212
+function gateway:static_reply(myserver, stream, req_headers) -- luacheck: ignore 212
 
 	-- Read in headers
 	assert(req_headers)
@@ -109,10 +108,10 @@ local function static_reply(myserver, stream, req_headers, static_dir, default_d
 	local path = req_headers:get(":path")
 	local uri_t = assert(uri_reference:match(path), "invalid path")
 	path = http_util.resolve_relative_path("/", uri_t.path)
-	if path == "/" and default_document then 
-		path = path .. default_document 
+	if path == "/" and self.config.default_document then 
+		path = path .. self.config.default_document 
 	end
-	local real_path = static_dir .. path
+	local real_path = self.config.base_path.."/"..self.config.static_dir .. path
 	print(path, real_path)
 	local file_type = lfs.attributes(real_path, "mode")
 	print(string.format("file type: %s", file_type)) 
@@ -234,7 +233,7 @@ end
 -- The system upgrades to a websocket if the ws or wss protocols are used.
 -- @param server ?
 -- @param An open stream to the client. Raw socket abstraction?
-local function process_request(server, stream, config)
+function gateway:process_request(server, stream, config)
 
 --[[
 get the users address and check if there is an existing session
@@ -246,9 +245,9 @@ else create new: timestamp of first contact, address, set auth to no.
 	local request_headers = assert(stream:get_headers())
 	local request_method = request_headers:get ":method"
 
-	local id = get_uuid()
+	local id = gateway:get_uuid()
 	--how do I get the client url and mac?
-	connection_log:info(string.format('[%s] "%s %s HTTP/%g"  "%s" "%s" ',
+	self.connection_log:info(string.format('[%s] "%s %s HTTP/%g"  "%s" "%s" ',
 		id,
 		request_headers:get(":method") or "",
 		request_headers:get(":path") or "",
@@ -265,7 +264,7 @@ else create new: timestamp of first contact, address, set auth to no.
 		local num, ip, port = stream:peername()	
 		t.address = ip..":"..port	
 		t.session_start = os.date()
-		Sessions[t.session_id] = t
+		self.sessions[t.session_id] = t
 		t.new_connection = true
 		t.websocket = ws
 		assert(t.websocket:accept())
@@ -278,49 +277,70 @@ else create new: timestamp of first contact, address, set auth to no.
 			
 			if data then			
 				print('got data')
-				if config.websocket_receive then
+				if self.handlers.websocket_receive then
 					--~ config:websocket_(t)
-					config.websocket_receive(Sessions, t, data)
+					self.handlers:websocket_receive(self.sessions, t, data)
 				--DO STUFF HERE
 				else
 					print('no handler')
 				end
 			end
 		until not data		
-		Sessions[t.session_id] = nil
+		self.sessions[t.session_id] = nil
 	else
-		--~ if config.static_reply then
-			--~ config:static_reply(server, stream, request_headers, config.static_dir, config.default_document)
-		--~ else
-			static_reply(server, stream, request_headers, "main/www", "index.html")
-		--~ end
+		if self.handlers and self.handlers.static_reply then
+			self.handlers:static_reply(server, stream, request_headers)
+		else
+			gateway.static_reply(self, server, stream, request_headers)
+		end
 	end
 end
 	
-local function Listen(app_server)
+function gateway:Listen(app_server)
 
 	-- Manually call :listen() so that we are bound before calling :localname()
 	assert(app_server:listen())
 	do
 		local id, ip, port = app_server:localname()
-		logger:info(string.format("Now listening on %s port %d\n", ip, port))
+		self.debug_log:info(string.format("Now listening on %s port %d\n", ip, port))
 	end
 	local cq_ok, err, errno = app_server:loop()
 	if not cq_ok then
-		logger:error(err, errno, "Http server process ended.", debug.traceback())
+		self.debug_log:error(err, errno, "Http server process ended.", debug.traceback())
 	else
-		logger:info('Web server exited')
+		self.debug_log:info('Web server exited')
 	end
 
 end
 
-local function CreateServer(debug_logger, config)
-	logger = debug_logger
+gateway.handlers = 
+{
+	websocket_receive = function(self, Sessions, session, data)
+		--~ local send = session.websocket:send
+		session.websocket:send("Hello Mr. "..session.session_id)
+		session.websocket:send("Hi! Hi hi hi!")
+	end,
+	static_reply = static_reply
+}
 
-	connection_log = rolling_logger(config.base_path .. "/" .. config.connection_log, config.file_roll_size or 1024*1024*10, config.max_log_files or 31)
+local mt = {__index = gateway}
+
+local function CreateServer(config, handlers, debug_logger)
+	local obj = {
+		req_timeout = 10,
+		ShutDown = false,
+		sessions = {},
+		config = config,
+		connection_log = connection_loger,
+		debug_log = debug_logger,
+		handlers = handlers
+	}
+	setmetatable(obj,mt)
+
+	obj.connection_log = rolling_logger(config.base_path .. "/" .. config.connection_log, config.file_roll_size or 1024*1024*10, config.max_log_files or 31)
 
 	local jar = 'WebEnabled'
-	logger:info(string.format('Welcome to %s', jar))
+	obj.debug_log:info(string.format('Welcome to %s', jar))
 	
 	local out = io.stderr
 	--~ cq = cqueues.new()
@@ -328,7 +348,7 @@ local function CreateServer(debug_logger, config)
 	local app_server = http_server.listen {
 	host = config.host;
 	port = config.port;
-	onstream = function(server,stream) process_request(server,stream, config) end;
+	onstream = function(server,stream) obj:process_request(server,stream, config) end;
 	onerror = function(myserver, context, op, err, errno) -- luacheck: ignore 212
 		local msg = op .. " on " .. tostring(context) .. " failed"
 		if err then
@@ -338,10 +358,12 @@ local function CreateServer(debug_logger, config)
 	end;
 	}
 	
-	return function() Listen(app_server) end
+	obj.listen = function() obj:Listen(app_server) end
+	return obj
 end
 
 -- call Run with pcall and if it dies, restart it. We can then add a proper handler in cqueues for signals
 
-return {new = CreateServer}
+return {new = CreateServer
+		}
 

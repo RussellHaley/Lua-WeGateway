@@ -15,12 +15,6 @@ local c = {
 	max_log_files=31
 }
 
-c.websocket_receive = function(Sessions, session, data)
-	--~ local send = session.websocket:send
-	session.websocket:send("Hello Mr. "..session.session_id)
-	session.websocket:send("Hi! Hi hi hi!")
-end;
-
-
+c.handler_module = "webenabled-request-handler"
 return c
 
