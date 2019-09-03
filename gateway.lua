@@ -241,6 +241,7 @@ if exists: set timestamp, check if authenticated.
 else create new: timestamp of first contact, address, set auth to no.
 --]]
 
+	local new_request = true
 	
 	local request_headers = assert(stream:get_headers())
 	local request_method = request_headers:get ":method"
@@ -267,24 +268,26 @@ else create new: timestamp of first contact, address, set auth to no.
 		self.sessions[t.session_id] = t
 		t.new_connection = true
 		t.websocket = ws
+		--~ I don't like this being in the generic gateway, but I don't 
+		--~ know how else to get the sessions websocket wired to the polling event?
+		if self.handlers.register_handler then 
+			self.handlers:register_handler(function(data)
+				t.websocket:send(data)
+			end);
+		end
 		assert(t.websocket:accept())
 		assert(t.websocket:send("WebEnabled - 0.1.0"))
-		t.websocket:send('{"authenticated":false}')
-		--Get my name first
-		--Send an Authenticate required message
 		repeat
-			local data, err, errno = t.websocket:receive()
-			
+			local data, err, errno = t.websocket:receive()		
 			if data then			
-				print('got data')
-				if self.handlers.websocket_receive then
-					--~ config:websocket_(t)
-					self.handlers:websocket_receive(self.sessions, t, data)
 				--DO STUFF HERE
+				if self.handlers.websocket_receive then
+					self.handlers:websocket_receive(self.sessions, t, data)
 				else
 					print('no handler')
 				end
 			end
+			new_request = false
 		until not data		
 		self.sessions[t.session_id] = nil
 	else
@@ -358,7 +361,12 @@ local function CreateServer(config, handlers, debug_logger)
 	end,
 	}
 	
-	obj.listen = function() obj:Listen(app_server) end
+	obj.listen = function() 
+		obj:Listen(app_server)
+		if obj.handlers.polling_event then
+			obj.handlers.polling_event()
+		end 
+	end
 	return obj
 end
 

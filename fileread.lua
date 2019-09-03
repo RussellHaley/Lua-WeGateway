@@ -4,6 +4,29 @@ local filename = "debug.log"
 
 local cq = cqueues.new()
 
+cq:wrap(function()
+	local filename = "debug.log"
+	local file = io.open(filename, "r")
+	print(file:read("*a"))
+	--PRINT THE FILE
+	repeat
+		local data =  file:read("*a")
+		if data and data ~= "" then
+			print(data)
+		end
+		--SLEEP
+		cqueues.sleep(2.5)
+	until the_end
+end);
+
+local cq_ok, err, errno = cq:loop()
+if not cq_ok then
+	--~ logger:fatal("%d - %s\n%s", errno or -1, err or 'none', debug.traceback())
+	print(err, errno, "Jumped the loop.", debug.traceback())
+end
+
+
+
 --~ cq:wrap(function()
 	--~ local start = lfs.attributes(filename, "size")
 	--~ if not start then
@@ -33,38 +56,3 @@ local cq = cqueues.new()
 		--~ --SLEEP
 	--~ until the_end
 --~ end);
-cq:wrap(function()
-	local filename = "debug.log"
-	local file = io.open(filename, "r")
-	print(file:read("*a"))
-	--PRINT THE FILE
-	repeat
-		local data =  file:read("*a")
-		if data and data ~= "" then
-			print(data)
-		end
-		--SLEEP
-		cqueues.sleep(2.5)
-	until the_end
-end);
-
-local cq_ok, err, errno = cq:loop()
-if not cq_ok then
-	--~ logger:fatal("%d - %s\n%s", errno or -1, err or 'none', debug.traceback())
-	print(err, errno, "Jumped the loop.", debug.traceback())
-end
-
-
-
---[[
-lfs find file
-lfs get file size
-
-file open
-file seek (end - x bytes or lines?)
-read
-lfs get file size
-begin file size - end file size
-file seek (end - x bytes
-sleep
---]]

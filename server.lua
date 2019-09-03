@@ -43,6 +43,9 @@ local function load_sites(cfg_dir, cq)
 				local gw = gateway.new(ws_config, handlers, lgr)
 				
 				cq:wrap(gw.listen)
+				if gw.handlers and gw.handlers.polling_event then
+					cq:wrap(function() gw.handlers:polling_event() end)
+				end
 			end
 		end
 	end
@@ -53,6 +56,8 @@ configs = {}
 cfg_dir = "configs"
 
 load_sites(cfg_dir, cq)
+
+
 
 local cq_ok, err, errno = cq:loop()
 if not cq_ok then

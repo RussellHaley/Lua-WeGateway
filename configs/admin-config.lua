@@ -16,5 +16,5 @@ local c = {
 	max_log_files=31
 }
 
---~ c.handler_module = "admin-routes"
+c.handler_module = "admin-routes"
 return c
