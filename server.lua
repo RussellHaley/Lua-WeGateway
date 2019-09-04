@@ -4,11 +4,15 @@ local gateway = require('gateway')
 local lfs = require "lfs"
 local cqueues = require('cqueues')
 
---~ if config.tree == 'project' then dofile('init.lua') end
-
 local function create_logger(cfg)
+	local path_and_name = cfg.base_path .. "/" .. cfg.debug_file_name
+	local path = path_and_name:match("(.*[/\\])")	
+	--mode returns "file" or "directory" if it exists, nil if not
+	if not lfs.attributes(path, "mode") then
+		assert(os.execute(string.format("mkdir -p %s", path)))		
+	end
 	local rolling_logger = require "logging.rolling_file"
-	local logger = rolling_logger(cfg.base_path .. "/" .. cfg.debug_file_name, cfg.file_roll_size or 1024*1024*10, cfg.max_log_files or 31)
+	local logger = rolling_logger(path_and_name, cfg.file_roll_size or 1024*1024*10, cfg.max_log_files or 31)
 	if not logger then
 		print("logger failed")
 		os.exit(-1)
@@ -39,7 +43,7 @@ local function load_sites(cfg_dir, cq)
 					handlers = require(h_file).new(lgr)
 				end
 				--CHECK IF THE FILE EXISTS								
-				print("mk gw", handlers, ws_config.base_path)				
+				print("Created Gateway:", handlers, ws_config.base_path)				
 				local gw = gateway.new(ws_config, handlers, lgr)
 				
 				cq:wrap(gw.listen)

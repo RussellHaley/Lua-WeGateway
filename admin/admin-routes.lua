@@ -12,19 +12,19 @@ local function polling_delegate(self, data)
 	end
 end
 
+function trim1(s)
+   return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
 
 local function polling_event(self)
 	local filename = "debug.log"
 	local file = io.open(filename, "r")
-	--Er, how do we get this session object?
-	--~ session.websocket:send(file:read("*a"))
 	local data = file:read("*a")
 	polling_delegate(self, data)
 	repeat
 		data =  file:read("*a")
-		if data and data ~= "" then
-			--Why am I getting extra whitespace in stdout?
-			--~ session.websocket:send(data))
+		if data and data ~= "" then		
+			--Send the data to the delegates (the session)
 			polling_delegate(self, data)
 		end
 		--SLEEP

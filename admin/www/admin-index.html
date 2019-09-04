@@ -56,29 +56,27 @@
 	    <tr>
 		<td>
 		    <input id="btnConnect"    type="button" value="Connect" >&nbsp;&nbsp;
-		    <input id="btnSendCmd"    type="button" value="Send Cmd" >&nbsp;&nbsp;		    
-		    <input id="btnDisconnect" type="button" value="Disconnect" onclick="onDisconnectClick()" disabled="disabled">
+			<input id="btnDisconnect" type="button" value="Disconnect" onclick="onDisconnectClick()" disabled="disabled">
 		</td>
 	    </tr>
-	</table><br/>
+	</table>
 	<!-- Send Message Table -->
 	<h2>Logs</h2>
 	<table>
 	    <tr>
-		<td width="200px">Logs</td>
-		<td><input type="text" id="message"/></td>
+		<td>
+			<input id="btnClear" type="button" value="Clear Messages">
+		</td>
 	    </tr>
 	    <tr>
-		<td></td>
 		<td>
-		    <input id="btnSend" type="button" value="Get Logs" disabled="disabled">
-		</td>
-		<td>
-		    <input id="btnClear" type="button" value="Clear Messages">
+			<textarea id="incomingMsgOutput" rows="10" cols="20" ></textarea>
 		</td>
 	    </tr>
+	    
 	</table><br/>
-	<textarea id="incomingMsgOutput" rows="10" cols="20" ></textarea>
+	
+	
     </body>
 </html>
 

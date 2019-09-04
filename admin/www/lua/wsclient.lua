@@ -61,51 +61,13 @@ function openWSConnection(protocol, hostname, port)
 			if (wsMsg.error) then			
 				output.value = "error: " .. wsMsg.error .. "\r\n" .. output.value
 			else
-				output.value = "message: " .. wsMsg .. "\r\n" .. output.value
+				output.value = wsMsg .. output.value
 			end
 		else
 			console:log("messageEvent was nil")
 		end
 	end
 
-end
---~ /**
---~ * Send a message to the WebSocket server
---~ */
-function onSendClick() 
-    if (webSocket.readyState ~= WebSocket.OPEN) then
-		console.error("webSocket is not open: " + webSocket.readyState)
-	return
-    end
-    local msg = document:getElementById("message").value
-    --~ webSocket:send(JSON:stringify(out))
-    webSocket:send(msg)
-end
-
-function onSendCmdClick() 
-	print('click, click click. damn, no bullets')
-    if (webSocket.readyState ~= WebSocket.OPEN) then
-		console.error("webSocket is not open: " .. webSocket.readyState)
-	return
-    end
-    
-    local jout = js.new(js.global.Object)
-    jout.cmd = "connect"
-    jout.client = document:getElementById("client").value
-    jout.model = document:getElementById("model").value
-    jout.serial_number = document:getElementById("serial").value
-    jout.mode = document:getElementById("mode").value
-    if document:getElementById("pairing_key") and document:getElementById("pairing_key").value ~= "" then
-		jout.pairing_key = document:getElementById("pairing_key").value
-    end
-    if document:getElementById("connection_id") and document:getElementById("connection_id").value ~= "" then
-		jout.connection_id = document:getElementById("connection_id").value
-    end
-    
-    --~ local jout = JSON:MagicLuaConverter(out)
-    local str = JSON:stringify(jout)
-    webSocket:send(str)    
-    print(str)    
 end
 
 local function onClearMessages()
@@ -114,9 +76,5 @@ end
 
 local btnConnect = document:getElementById('btnConnect')
    btnConnect.onclick=onConnectClick
-local btnSend = document:getElementById('btnSend')
-	btnSend.onclick=onSendClick
-local btnSendCmd = document:getElementById('btnSendCmd')
-	btnSendCmd.onclick=onSendCmdClick
 local btnClear = document:getElementById('btnClear')
-	btnclear.onclick=onClearMessages
+	btnClear.onclick=onClearMessages
