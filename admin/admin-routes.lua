@@ -16,8 +16,12 @@ function trim1(s)
    return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
-local function polling_event(self)
-	local filename = "debug.log"
+local function polling_event(self, filename)
+	print(filename)
+	if not filename and type(filename) == 'string' then 
+		print("failed")
+		return nil, "filename is a required parameter." 
+	end
 	local file = io.open(filename, "r")
 	local data = file:read("*a")
 	polling_delegate(self, data)

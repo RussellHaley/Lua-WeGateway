@@ -13,4 +13,5 @@ local c = {
 }
 
 c.handler_module = "admin-routes"
+c.polling_file = "main/logs/debug.log"
 return c

@@ -114,9 +114,11 @@ end
 
 local btnConnect = document:getElementById('btnConnect')
    btnConnect.onclick=onConnectClick
+local btnDisconnect = document:getElementById('btnDisconnect')
+   btnDisconnect.onclick=onDisconnectClick
 local btnSend = document:getElementById('btnSend')
 	btnSend.onclick=onSendClick
 local btnSendCmd = document:getElementById('btnSendCmd')
 	btnSendCmd.onclick=onSendCmdClick
 local btnClear = document:getElementById('btnClear')
-	btnclear.onclick=onClearMessages
+	btnClear.onclick=onClearMessages

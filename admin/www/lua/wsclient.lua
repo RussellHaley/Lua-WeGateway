@@ -38,13 +38,11 @@ function openWSConnection(protocol, hostname, port)
 	webSocket = js.new(WebSocket, webSocketURL)
 		webSocket.onopen = function(this, openEvent) 
 	    console:log("WebSocket OPEN: " .. JSON:stringify(openEvent, null, 4))
-	    document:getElementById("btnSend").disabled       = false
 	    document:getElementById("btnConnect").disabled    = true
 	    document:getElementById("btnDisconnect").disabled = false
 	end
 	webSocket.onclose = function (closeEvent) 
 	    --~ console:log("WebSocket CLOSE: " + JSON:stringify(closeEvent, null, 4))
-	    document:getElementById("btnSend").disabled       = true
 	    document:getElementById("btnConnect").disabled    = false
 	    document:getElementById("btnDisconnect").disabled = true
 	end

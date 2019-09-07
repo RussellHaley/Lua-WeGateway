@@ -48,7 +48,8 @@ local function load_sites(cfg_dir, cq)
 				
 				cq:wrap(gw.listen)
 				if gw.handlers and gw.handlers.polling_event then
-					cq:wrap(function() gw.handlers:polling_event() end)
+					local hack_filename = ws_config.polling_file
+					cq:wrap(function() gw.handlers:polling_event(hack_filename) end)
 				end
 			end
 		end
